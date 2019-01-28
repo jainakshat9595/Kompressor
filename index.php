@@ -7,8 +7,8 @@
     require("Compress.php");
 
     $quality = 30;
-    $pngQuality = 9;
-    $targetDir = "/home/akshat-jain/Workspace/kompressor/dogs-subset";
+    $pngQuality = 3;
+    $targetDir = "/home/akshat-jain/Downloads/wp-content/uploads/imported";
 
     $compressor = new Compress($quality, $pngQuality, $targetDir."-min");
 

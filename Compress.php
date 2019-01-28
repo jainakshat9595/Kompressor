@@ -119,10 +119,10 @@ class Compress {
             $image_size = filesize($this->file_url);
                                     
             //if image size is bigger than 5mb
-            if($image_size >= $maxsize){
-                throw new Exception('Please send a imagem smaller than 5mb!');
-                return false;
-            }
+            // if($image_size >= $maxsize){
+            //     throw new Exception('Please send a imagem smaller than 5mb!');
+            //     return false;
+            // }
             
             //If not found the destination
             if(empty($this->new_name_image)){
@@ -137,7 +137,7 @@ class Compress {
             }
 
             //If not found the png quality
-            $png_compression = (!empty($this->pngQuality)) ? $this->pngQuality : 9 ;
+            $png_compression = 9 ;
             
             $image_extension = pathinfo($this->file_url, PATHINFO_EXTENSION);
             //Verify if is sended a destination file name with extension
@@ -177,12 +177,10 @@ class Compress {
                 }
             }
             
-            //Switch to find the file type
             switch ($image_mime){
-                //if is JPG and siblings
+
                 case 'image/jpeg':
                 case 'image/pjpeg':
-                    //Create a new jpg image
                     $new_image = imagecreatefromjpeg($this->file_url);
 
                     if($shouldResize) {
@@ -209,26 +207,11 @@ class Compress {
                     } else {
                         imagejpeg($new_image, $this->destination.$this->new_name_image, $this->quality);
                     }
-
-                    
                     break;
-                //if is PNG and siblings
+
                 case 'image/png':
                 case 'image/x-png':
-                    //Create a new png image
-                    $new_image = imagecreatefrompng($this->file_url);
-                    imagealphablending($new_image , false);
-                    imagesavealpha($new_image , true);
-
-                    if($shouldResize) {
-                        $dst = imagecreatetruecolor($newwidth, $newheight);
-                        imagecopyresampled($dst, $new_image, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
-    
-                        imagepng($dst, $this->destination.$this->new_name_image, $png_compression);
-                    } else {
-                        imagepng($new_image, $this->destination.$this->new_name_image, $png_compression);
-                    }
-                    
+                    file_put_contents($this->destination.$this->new_name_image, compress_png($this->file_url));
                     break;
             }
             
@@ -242,22 +225,33 @@ class Compress {
     }
 }
 
-function resize_image($file, $w, $h, $crop=FALSE) {
-    
-    if ($crop) {
-        if ($width > $height) {
-            $width = ceil($width-($width*abs($r-$w/$h)));
-        } else {
-            $height = ceil($height-($height*abs($r-$w/$h)));
-        }
-        $newwidth = $w;
-        $newheight = $h;
-    } else {
-        
+/**
+ * Optimizes PNG file with pngquant 1.8 or later (reduces file size of 24-bit/32-bit PNG images).
+ *
+ * You need to install pngquant 1.8 on the server (ancient version 1.0 won't work).
+ * There's package for Debian/Ubuntu and RPM for other distributions on http://pngquant.org
+ *
+ * @param $path_to_png_file string - path to any PNG file, e.g. $_FILE['file']['tmp_name']
+ * @param $max_quality int - conversion quality, useful values from 60 to 100 (smaller number = smaller file)
+ * @return string - content of PNG file after conversion
+ */
+function compress_png($path_to_png_file, $max_quality = 90)
+{
+    if (!file_exists($path_to_png_file)) {
+        throw new Exception("File does not exist: $path_to_png_file");
     }
-    $src = imagecreatefromjpeg($file);
-    $dst = imagecreatetruecolor($newwidth, $newheight);
-    imagecopyresampled($dst, $src, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
 
-    return $dst;
+    // guarantee that quality won't be worse than that.
+    $min_quality = 60;
+
+    // '-' makes it use stdout, required to save to $compressed_png_content variable
+    // '<' makes it read from the given file path
+    // escapeshellarg() makes this safe to use with any path
+    $compressed_png_content = shell_exec("pngquant --quality=$min_quality-$max_quality - < ".escapeshellarg(    $path_to_png_file));
+
+    if (!$compressed_png_content) {
+        throw new Exception("Conversion to compressed PNG failed. Is pngquant 1.8+ installed on the server?");
+    }
+
+    return $compressed_png_content;
 }
